@@ -219,7 +219,6 @@ all_counties_withgeo <- get_acs(geography = "county",
 all_counties_withgeo
 ```
 
-
 ## Making a detailed county-level demographics table
 
 ```{r}
@@ -237,7 +236,6 @@ myvars <- c(totalpop = "B01003_001",
             education_gradprofess = "B06009_006")
 ```
 
-
 ```{r}
 #Getting data for every state
 allcounties_wide <- get_acs(geography = "county",
@@ -246,7 +244,6 @@ allcounties_wide <- get_acs(geography = "county",
                          geometry = TRUE)
 ```
 
-
 ```{r}
 #remove MOE columns - they all end with "M"
 allcounties_wide <- allcounties_wide %>%
@@ -254,7 +251,6 @@ allcounties_wide <- allcounties_wide %>%
 
 names(allcounties_wide)
 ```
-
 
 ```{r}
 # #cleaning up and splitting NAME into component parts
@@ -266,11 +262,9 @@ allcounties_wide <- allcounties_wide %>%
   )
 ```
 
-
 ```{r}
 glimpse(allcounties_wide)
 ```
-
 
 ```{r}
 #bring new columns forward
@@ -284,7 +278,6 @@ allcounties_wide <- allcounties_wide %>%
 glimpse(allcounties_wide)
 ```
 
-
 ```{r}
 #clean up column names to remove trailing E
 #we do this here and not above to avoid losing the E in NAME until it's split and discarded
@@ -292,7 +285,6 @@ colnames(allcounties_wide) <- sub("E$", "", colnames(allcounties_wide)) # $ mean
 
 names(allcounties_wide)
 ```
-
 
 ```{r}
 #percentage calculations
@@ -322,11 +314,9 @@ allcounties_wide <- allcounties_wide %>%
   )
 ```
 
-
 ```{r}
 # save results for next steps
 saveRDS(allcounties_wide, here("data", "allcounties_wide_demographics.rds"))
 
 
 ```
-

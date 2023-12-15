@@ -1,6 +1,6 @@
 ---
-title: "Interactive Maps"
-author: "Aaron Kessler"
+title: "Interactive County Analysis"
+author: "Layla Nayfeh"
 date: "`r format(Sys.time(), '%B %d, %Y')`"
 format:
   html:
@@ -9,8 +9,12 @@ format:
     toc-location: left
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+```{r setup, echo = FALSE, message = FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  warning=FALSE,
+  message=FALSE
+)
 
 library(tidyverse)
 library(tigris)
@@ -22,47 +26,52 @@ library(here)
 library(mapview)
 library(leafsync)
 library(leaflet.extras2)
+library(writexl)
+library(jsonlite)
 options(tigris_class = "sf")
 
 
 ```
 
-# Interactive Maps with MapView Package
+# **Interactive Analysis**
 
-A h/t to Sharon Machlis for turning people on to the Mapview package, and her excellent walkthroughs of it.
+### **This is an analysis comparing Massachusetts counties' income and age!**
 
-For the data tonight we'll be using the tidycensus package to pull both census data, as well as geospatial boundaries. 
-Let's quickly review how we use it.
+#### First, I'm using the tidycensus package to pull the census data and geospatial boundaries.
 
-```{r}
+```{r, results = 'hide'}
 
 census_api_key("2a6f8c21a30d3024e038d67d7d4eba647dc79cd4", overwrite=TRUE)
 
 
 ```
 
-```{r}
-#chose variables we want
+#### Next, I'm choosing my variables...
+
+```{r, results = 'hide'}
+
 myvars <- c(totalpop = "B01003_001",
             medincome = "B19013_001",
             medage = "B01002_001"
 )
 ```
 
+#### I chose to look at Massachusetts, my home state. So, now, I'm pulling Massachusetts-specific counties.
 
-```{r}
-#pull for VA counties
-va_counties_withgeo <- get_acs(geography = "county",
+```{r, results = 'hide'}
+ma_counties_withgeo <- get_acs(geography = "county",
                        variables = c(myvars),
-                       state = "VA",
+                       state = "MA",
                        output = "wide",
                        geometry = TRUE)
 
-va_counties_withgeo
+ma_counties_withgeo
 ```
 
-```{r}
-#all counties in the US
+#### I'm also grabbing all U.S. counties...
+
+```{r, results = 'hide'}
+
 all_counties_withgeo <- get_acs(geography = "county",
                        variables = c(myvars),
                        output = "wide",
@@ -71,98 +80,45 @@ all_counties_withgeo <- get_acs(geography = "county",
 all_counties_withgeo
 ```
 
-```{r}
-#remove MOE columns - they all end with "M"
-va_counties_withgeo <- va_counties_withgeo %>%
+#### ...cleaning up the column names...
+
+```{r, results = 'hide'}
+ma_counties_withgeo <- ma_counties_withgeo %>%
   select(-ends_with("M"))
 
-va_counties_withgeo
+ma_counties_withgeo
 ```
 
-```{r}
-#remove that trailing "E"
-colnames(va_counties_withgeo) <- sub("E$", "", colnames(va_counties_withgeo)) # $ means end of string only
+```{r, results = 'hide'}
+colnames(ma_counties_withgeo) <- sub("E$", "", colnames(ma_counties_withgeo)) 
 
-va_counties_withgeo
+ma_counties_withgeo
 ```
 
-Mapping Virginia counties with mapview
+#### Now, I'm mapping Massachusetts counties with mapview.
 
 ```{r}
 
-mapview(va_counties_withgeo, zcol = "medincome")
-
-
+mapview(ma_counties_withgeo, zcol = "medincome")
 
 ```
 
+#### Then, we customize the colors. Purple, for fun.
 
-Customize colors
 ```{r}
 
-mapview(va_counties_withgeo, zcol = "medincome", 
-         col.regions = RColorBrewer::brewer.pal(9, "Greens"), 
+mapview(ma_counties_withgeo, zcol = "medincome", 
+         col.regions = RColorBrewer::brewer.pal(14, "Purples"), 
          alpha.regions = 1)
 
-
-
 ```
-This map’s dark background appeared automatically, because mapview determined the map included a lot of light colors. You can turn off that feature.
+
+#### Customizing those legends
 
 ```{r}
 
-mapviewOptions("basemaps.color.shuffle" = FALSE)
-
-
-```
-
-
-```{r}
-
-mapview(va_counties_withgeo, zcol = "medincome", 
-         col.regions = RColorBrewer::brewer.pal(9, "Greens"), 
-         alpha.regions = 1)
-
-
-
-```
-
-Two maps together
-```{r}
-
-map_income <- mapview(va_counties_withgeo, zcol = "medincome", 
-         col.regions = RColorBrewer::brewer.pal(9, "Greens"), 
-         alpha.regions = 1)
-
-map_age <- mapview(va_counties_withgeo, zcol = "medage", 
-         col.regions = RColorBrewer::brewer.pal(9, "Greens"), 
-         alpha.regions = 1)
-
-
-```
-
-
-```{r}
-
-sync(map_income, map_age)
-
-
-```
-
-Side-by-side slider to compare the two, from the leaflet.extras2 package 
-```{r}
-
-map_income | map_age
-
-
-```
-To turn off legends, hover text, popups
-
-
-```{r}
-
-mapview(va_counties_withgeo, zcol = "medincome", 
-         col.regions = RColorBrewer::brewer.pal(9, "Greens"), 
+mapview(ma_counties_withgeo, zcol = "medincome", 
+         col.regions = RColorBrewer::brewer.pal(14, "Purples"), 
          alpha.regions = 1,
          legend = FALSE, 
          label = FALSE, 
@@ -171,24 +127,26 @@ mapview(va_counties_withgeo, zcol = "medincome",
 
 ```
 
-Customize labels
+#### ...the labels, too.
+
 ```{r}
 
-mylabel <- glue::glue("{va_counties_withgeo$NAM} {va_counties_withgeo$medincome}")
+mylabel <- glue::glue("{ma_counties_withgeo$NAM} {ma_counties_withgeo$medincome}")
 
 
-mapview(va_counties_withgeo, zcol = "medincome", 
-         col.regions = RColorBrewer::brewer.pal(9, "Greens"), 
+mapview(ma_counties_withgeo, zcol = "medincome", 
+         col.regions = RColorBrewer::brewer.pal(14, "Purples"), 
          alpha.regions = 1,
          label = mylabel)
 
 ```
 
-Customize popups
+#### ...and the popups...
+
 ```{r}
-mypopup <- glue::glue("<strong>{va_counties_withgeo$NAM}</strong><br />
-                      Total Population: {va_counties_withgeo$totalpop}<br />
-                      Median Income: {va_counties_withgeo$medincome}") %>% 
+mypopup <- glue::glue("<strong>{ma_counties_withgeo$NAM}</strong><br />
+                      Total Population: {ma_counties_withgeo$totalpop}<br />
+                      Median Income: {ma_counties_withgeo$medincome}") %>% 
   lapply(htmltools::HTML)
 
 # mylabel <- glue::glue("{all_data$State} {all_data$PctChange10_20}%") %>%
@@ -196,37 +154,46 @@ mypopup <- glue::glue("<strong>{va_counties_withgeo$NAM}</strong><br />
 
 ```
 
-
-```{r}
+```{r, results = 'hide'}
 
 head(mypopup)
 
 ```
 
-
 ```{r}
 
-mapview(va_counties_withgeo, zcol = "medincome", 
-         col.regions = RColorBrewer::brewer.pal(9, "Greens"), 
+mapview(ma_counties_withgeo, zcol = "medincome", 
+         col.regions = RColorBrewer::brewer.pal(14, "Purples"), 
          alpha.regions = 1,
          popup = mypopup)
 
 ```
 
+#### Looking at our variables side by side, with my labels and popups!
 
 ```{r}
 
+map_income <- mapview(ma_counties_withgeo, zcol = "medincome", 
+         col.regions = RColorBrewer::brewer.pal(14, "Purples"), 
+         alpha.regions = 1,
+         popup = mypopup,
+         label = mylabel)
 
+map_age <- mapview(ma_counties_withgeo, zcol = "medage", 
+         col.regions = RColorBrewer::brewer.pal(14, "Purples"), 
+         alpha.regions = 1,
+         popup = mypopup,
+         label = mylabel)
+
+sync(map_income, map_age)
+
+# With a slider!
+map_income | map_age
 
 ```
 
+## Some Analysis:
 
-```{r}
+#### Middlesex county seems to be the youngest and wealthiest. This might be because this county is home to Cambridge, where some of the nations top colleges are located. Interestingly, the oldest counties in Massachusetts, like Barnstable, where Cape Cod is, is not the wealthiest. While older people retire there and wealthy families summer there, the general population is most likely working class. Dukes County, home to Martha's vineyard, seems to be a similar case. Surprisingly, Nantucket, another island off the coast of Massachusetts, has a younger population that is wealthier.
 
-
-
-```
-
-
-
-
+# [go back home](https://laylanayfeh.github.io/laylanayfeh/)
